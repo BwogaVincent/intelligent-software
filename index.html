@@ -1,0 +1,152 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Malaria Eradication Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/react@17/umd/react.development.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@17/umd/react-dom.development.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/babel-standalone@6/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Mock API data for demo purposes
+        const mockData = {
+            hotspots: [
+                { id: 1, location: "Siaya County, Kenya", cases: 1200, mosquitoDensity: 0.75, riskLevel: "High" },
+                { id: 2, location: "Obuasi, Ghana", cases: 800, mosquitoDensity: 0.60, riskLevel: "Medium" },
+                { id: 3, location: "Lagos, Nigeria", cases: 1500, mosquitoDensity: 0.85, riskLevel: "High" },
+            ],
+            interventions: [
+                { id: 1, type: "Larviciding", location: "Siaya County", status: "In Progress" },
+                { id: 2, type: "ITN Distribution", location: "Obuasi", status: "Completed" },
+            ],
+        };
+
+        // Main Dashboard Component
+        function Dashboard() {
+            const [hotspots, setHotspots] = useState([]);
+            const [interventions, setInterventions] = useState([]);
+            const [selectedLocation, setSelectedLocation] = useState(null);
+
+            // Simulate fetching data from an API
+            useEffect(() => {
+                setHotspots(mockData.hotspots);
+                setInterventions(mockData.interventions);
+            }, []);
+
+            // Handle location selection for detailed view
+            const handleLocationClick = (location) => {
+                setSelectedLocation(location);
+            };
+
+            return (
+                <div className="container mx-auto p-4">
+                    <h1 className="text-3xl font-bold text-center mb-6">Malaria Eradication Dashboard</h1>
+                    
+                    {/* Hotspots Section */}
+                    <div className="mb-8">
+                        <h2 className="text-2xl font-semibold mb-4">Malaria Hotspots</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {hotspots.map((hotspot) => (
+                                <div
+                                    key={hotspot.id}
+                                    className="p-4 bg-white rounded-lg shadow-md hover:bg-gray-100 cursor-pointer"
+                                    onClick={() => handleLocationClick(hotspot)}
+                                >
+                                    <h3 className="text-lg font-semibold">{hotspot.location}</h3>
+                                    <p>Cases: {hotspot.cases}</p>
+                                    <p>Mosquito Density: {(hotspot.mosquitoDensity * 100).toFixed(1)}%</p>
+                                    <p>Risk Level: <span className={hotspot.riskLevel === "High" ? "text-red-600" : "text-yellow-600"}>{hotspot.riskLevel}</span></p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Interventions Section */}
+                    <div className="mb-8">
+                        <h2 className="text-2xl font-semibold mb-4">Active Interventions</h2>
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-gray-200">
+                                    <th className="p-2">Type</th>
+                                    <th className="p-2">Location</th>
+                                    <th className="p-2">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {interventions.map((intervention) => (
+                                    <tr key={intervention.id} className="border-b">
+                                        <td className="p-2">{intervention.type}</td>
+                                        <td className="p-2">{intervention.location}</td>
+                                        <td className="p-2">{intervention.status}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Detailed View for Selected Location */}
+                    {selectedLocation && (
+                        <div className="mb-8">
+                            <h2 className="text-2xl font-semibold mb-4">Details for {selectedLocation.location}</h2>
+                            <div className="p-4 bg-white rounded-lg shadow-md">
+                                <p><strong>Cases:</strong> {selectedLocation.cases}</p>
+                                <p><strong>Mosquito Density:</strong> {(selectedLocation.mosquitoDensity * 100).toFixed(1)}%</p>
+                                <p><strong>Risk Level:</strong> {selectedLocation.riskLevel}</p>
+                                <p><strong>Recommended Action:</strong> {selectedLocation.riskLevel === "High" ? "Deploy larviciding and ITN distribution" : "Monitor and maintain current interventions"}</p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // Render the app
+        ReactDOM.render(<Dashboard />, document.getElementById('root'));
+    </script>
+</body>
+</html>
